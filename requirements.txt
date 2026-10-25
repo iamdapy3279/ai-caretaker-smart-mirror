@@ -1,0 +1,7 @@
+flask>=3.0.0
+sounddevice>=0.4.6
+soundfile>=0.12.1
+numpy>=1.24.0
+kittenml>=0.1.0
+faster-whisper>=1.0.0
+ollama>=0.1.0

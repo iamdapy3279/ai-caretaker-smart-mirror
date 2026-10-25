@@ -1,0 +1,26 @@
+[
+    {
+        "day": "Friday",
+        "task": "Doctor appointment at 10:00 AM"
+    },
+    {
+        "day": "Thursday",
+        "task": "Call Arjun"
+    },
+    {
+        "day": "Scheduled",
+        "task": "remember something important"
+    },
+    {
+        "day": "Scheduled",
+        "task": "prevent forgetting an important family interaction check"
+    },
+    {
+        "day": "Scheduled",
+        "task": "call Arjun"
+    },
+    {
+        "day": "Scheduled",
+        "task": "set a reminder for Sham to take 5 cups of chai"
+    }
+]

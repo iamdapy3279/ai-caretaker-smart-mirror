@@ -1,0 +1,2497 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Caretaker Smart Mirror — Live Voice Pipeline Telemetry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Rozha+One&family=Yantramanav:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #05070c;
+            --surface-card: rgba(18, 24, 38, 0.7);
+            --surface-glass: rgba(255, 255, 255, 0.04);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.18);
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --text-faint: #64748b;
+            --accent-cyan: #06b6d4;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-indigo: #818cf8;
+            --glow-color: rgba(6, 182, 212, 0.35);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(14, 165, 233, 0.08) 0%, transparent 60%),
+                radial-gradient(circle at 10% 90%, rgba(99, 102, 241, 0.05) 0%, transparent 50%);
+            color: var(--text-main);
+            font-family: 'Yantramanav', 'Plus Jakarta Sans', -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        /* Top Smart Mirror Bar */
+        .mirror-header {
+            width: 100%;
+            padding: 24px 36px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-glass);
+            background: rgba(5, 7, 12, 0.85);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .clock-section {
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+        }
+
+        .digital-clock {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.8rem;
+            font-weight: 300;
+            letter-spacing: 1px;
+            line-height: 1;
+            color: #ffffff;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+        }
+
+        .calendar-date {
+            font-size: 1.05rem;
+            color: var(--text-dim);
+            font-weight: 400;
+        }
+
+        .system-badges {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .badge-pill {
+            background: var(--surface-glass);
+            border: 1px solid var(--border-glass);
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 0.82rem;
+            font-family: 'Outfit', sans-serif;
+            color: var(--text-dim);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            letter-spacing: 0.3px;
+        }
+
+        .badge-live {
+            border-color: rgba(16, 185, 129, 0.4);
+            background: rgba(16, 185, 129, 0.08);
+            color: var(--accent-emerald);
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-emerald);
+            box-shadow: 0 0 10px var(--accent-emerald);
+            animation: pulseDot 2s infinite ease-in-out;
+        }
+
+        @keyframes pulseDot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+
+        /* Main Workspace Split Layout */
+        .main-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 28px;
+            padding: 28px 36px;
+            max-width: 1720px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        @media (max-width: 1180px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Left Column: Avatar & Dynamic Dialogue */
+        .stage-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .avatar-stage {
+            position: relative;
+            width: 240px;
+            height: 240px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        #visualizer-canvas {
+            position: absolute;
+            top: -20px;
+            left: -20px;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .avatar-aura {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.15) 0%, transparent 70%);
+            filter: drop-shadow(0 0 30px var(--glow-color));
+            transition: all 0.5s ease;
+            z-index: 2;
+        }
+
+        .avatar-frame {
+            position: relative;
+            z-index: 3;
+            width: 170px;
+            height: 170px;
+            border-radius: 50%;
+            background: #090d16;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 35px rgba(0, 0, 0, 0.6);
+            transition: all 0.3s ease;
+        }
+
+        /* Avatar Face SVG */
+        .eye {
+            fill: #ffffff;
+            transition: transform 0.1s ease;
+            transform-origin: center;
+        }
+
+        .eye-blink {
+            animation: blinkEyes 4.5s infinite;
+        }
+
+        @keyframes blinkEyes {
+            0%, 94%, 100% { transform: scaleY(1); }
+            96% { transform: scaleY(0.1); }
+        }
+
+        #avatar-mouth {
+            stroke: #ffffff;
+            stroke-width: 4;
+            stroke-linecap: round;
+            fill: none;
+            transition: d 0.06s ease;
+        }
+
+        /* Dynamic Avatar Moods */
+        .state-listening .avatar-aura {
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, transparent 75%);
+            --glow-color: rgba(16, 185, 129, 0.45);
+        }
+        .state-listening .avatar-frame {
+            border-color: rgba(16, 185, 129, 0.7);
+            box-shadow: 0 0 30px rgba(16, 185, 129, 0.3);
+        }
+
+        .state-speaking-user .avatar-aura {
+            background: radial-gradient(circle, rgba(244, 63, 94, 0.35) 0%, transparent 75%);
+            --glow-color: rgba(244, 63, 94, 0.6);
+            animation: pulseUserSpeech 1s infinite alternate ease-in-out;
+        }
+        .state-speaking-user .avatar-frame {
+            border-color: #f43f5e;
+            box-shadow: 0 0 35px rgba(244, 63, 94, 0.5);
+        }
+
+        .state-thinking .avatar-aura {
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.3) 0%, transparent 75%);
+            --glow-color: rgba(245, 158, 11, 0.5);
+            animation: rotateAura 2s infinite linear;
+        }
+        .state-thinking .avatar-frame {
+            border-color: #f59e0b;
+            box-shadow: 0 0 35px rgba(245, 158, 11, 0.4);
+        }
+
+        .state-speaking-ai .avatar-aura {
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.35) 0%, transparent 75%);
+            --glow-color: rgba(6, 182, 212, 0.6);
+        }
+        .state-speaking-ai .avatar-frame {
+            border-color: #06b6d4;
+            box-shadow: 0 0 40px rgba(6, 182, 212, 0.5);
+        }
+
+        @keyframes pulseUserSpeech {
+            0% { transform: scale(0.97); }
+            100% { transform: scale(1.08); }
+        }
+
+        @keyframes rotateAura {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.06); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+
+        /* Status Banner */
+        .status-badge-banner {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            border-radius: 9999px;
+            padding: 8px 20px;
+            font-size: 0.95rem;
+            letter-spacing: 0.5px;
+            color: var(--text-main);
+            transition: all 0.3s ease;
+        }
+
+        /* Dialogue Box Area */
+        .dialogue-wrapper {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .dialogue-card {
+            background: var(--surface-card);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 20px 24px;
+            position: relative;
+            backdrop-filter: blur(16px);
+            transition: all 0.3s ease;
+        }
+
+        .dialogue-card:hover {
+            border-color: var(--border-hover);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .speaker-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .speaker-user { color: #f43f5e; }
+        .speaker-ai { color: #06b6d4; }
+
+        .metric-stamp {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.78rem;
+            color: var(--text-faint);
+            background: rgba(255, 255, 255, 0.04);
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+
+        .dialogue-text {
+            font-size: 1.45rem;
+            line-height: 1.5;
+            min-height: 2.2rem;
+            color: var(--text-main);
+            word-break: break-word;
+        }
+
+        .dialogue-text.caretaker-text {
+            font-size: 1.75rem;
+            font-weight: 400;
+            color: #ffffff;
+            letter-spacing: 0.2px;
+        }
+
+        /* -------------------------------------------------------------------- */
+        /* Multi-Card Decoupled Telemetry & Vocoder Layout                      */
+        /* -------------------------------------------------------------------- */
+        .card {
+            background: var(--surface-card);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 18px 22px;
+            position: relative;
+            backdrop-filter: blur(16px);
+            transition: all 0.3s ease;
+        }
+
+        .stt-card {
+            border-color: rgba(244, 63, 94, 0.3);
+        }
+
+        .developer-brain-card {
+            background-color: rgba(10, 25, 50, 0.5) !important;
+            border: 1px solid #00d2ff !important;
+            border-radius: 8px !important;
+            padding: 15px !important;
+            margin-bottom: 4px;
+            font-family: 'Courier New', Courier, monospace !important;
+            box-shadow: 0 4px 20px rgba(0, 210, 255, 0.12);
+        }
+
+        .response-card {
+            border: 1.5px solid rgba(16, 185, 129, 0.55) !important;
+            background: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.12), rgba(5, 7, 12, 0.7)) !important;
+            box-shadow: 0 10px 35px rgba(16, 185, 129, 0.2), inset 0 0 25px rgba(16, 185, 129, 0.08) !important;
+            backdrop-filter: blur(20px) !important;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .response-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.8), rgba(6, 182, 212, 0.8), transparent);
+        }
+
+        .badge {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 8px;
+            padding: 4px 10px;
+            border-radius: 6px;
+        }
+
+        .status-orange {
+            background: rgba(244, 63, 94, 0.15);
+            color: #f43f5e;
+            border: 1px solid rgba(244, 63, 94, 0.3);
+        }
+
+        .status-blue {
+            background: rgba(0, 210, 255, 0.15);
+            color: #00d2ff;
+            border: 1px solid rgba(0, 210, 255, 0.3);
+        }
+
+        .status-green {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .display-box-large {
+            font-size: 1.45rem;
+            line-height: 1.5;
+            color: var(--text-main);
+            word-break: break-word;
+        }
+
+        .display-box-medium {
+            font-size: 1.05rem;
+            line-height: 1.5;
+            word-break: break-word;
+            max-height: 160px;
+            overflow-y: auto;
+        }
+
+        .text-dimmed {
+            color: #88a0c0 !important;
+            font-size: 1.05rem;
+            line-height: 1.5;
+        }
+
+        .text-glow {
+            color: #ffffff !important;
+            font-size: 2.2rem !important;
+            font-weight: 700 !important;
+            text-shadow: 0 0 15px rgba(16, 185, 129, 0.85), 0 0 30px rgba(6, 182, 212, 0.5), 0 2px 4px rgba(0, 0, 0, 0.8);
+            line-height: 1.45;
+            letter-spacing: 0.3px;
+        }
+
+        .typing-cursor {
+            display: inline-block;
+            width: 3px;
+            height: 1.4em;
+            background: var(--accent-cyan);
+            vertical-align: middle;
+            margin-left: 4px;
+            animation: blinkCursor 0.8s infinite;
+        }
+
+        @keyframes blinkCursor {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* Right Column: Telemetry & Inspector */
+        .telemetry-column {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .glass-panel {
+            background: var(--surface-card);
+            border: 1px solid var(--border-glass);
+            border-radius: 18px;
+            padding: 22px 26px;
+            backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .panel-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Telemetry Waterfall Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 12px;
+        }
+
+        .metric-cell {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            transition: all 0.25s ease;
+        }
+
+        .metric-cell:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .metric-cell.cell-active {
+            border-color: var(--accent-amber);
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        .metric-cell.cell-done {
+            border-color: rgba(16, 185, 129, 0.4);
+            background: rgba(16, 185, 129, 0.06);
+        }
+
+        .metric-cell.cell-total {
+            border-color: rgba(6, 182, 212, 0.5);
+            background: rgba(6, 182, 212, 0.08);
+        }
+
+        .metric-header {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            font-family: 'Outfit', sans-serif;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.55rem;
+            font-weight: 600;
+            color: #ffffff;
+            line-height: 1.1;
+        }
+
+        .metric-cell.cell-done .metric-value {
+            color: var(--accent-emerald);
+        }
+
+        .metric-cell.cell-total .metric-value {
+            color: var(--accent-cyan);
+        }
+
+        .metric-sub {
+            font-size: 0.72rem;
+            color: var(--text-faint);
+            font-family: 'Outfit', sans-serif;
+        }
+
+        /* Pipeline Flow Steps Visualizer */
+        .pipeline-stepper {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            margin: 8px 0;
+            padding: 0 8px;
+        }
+
+        .stepper-line {
+            position: absolute;
+            top: 18px;
+            left: 24px;
+            right: 24px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            z-index: 1;
+        }
+
+        .stepper-progress {
+            position: absolute;
+            top: 18px;
+            left: 24px;
+            height: 2px;
+            background: linear-gradient(90deg, #10b981, #06b6d4);
+            width: 0%;
+            transition: width 0.4s ease;
+            z-index: 2;
+        }
+
+        .step-node {
+            position: relative;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .step-circle {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #0d131f;
+            border: 2px solid var(--border-glass);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .step-node.active .step-circle {
+            border-color: var(--accent-amber);
+            background: rgba(245, 158, 11, 0.2);
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.5);
+            transform: scale(1.12);
+        }
+
+        .step-node.done .step-circle {
+            border-color: var(--accent-emerald);
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent-emerald);
+        }
+
+        .step-label {
+            font-size: 0.75rem;
+            font-family: 'Outfit', sans-serif;
+            color: var(--text-dim);
+            text-align: center;
+        }
+
+        /* Chunk Stream Matrix */
+        .chunk-stream-box {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 180px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .chunk-badge {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            transition: all 0.25s ease;
+            animation: slideInChunk 0.3s ease;
+        }
+
+        @keyframes slideInChunk {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chunk-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chunk-tag {
+            background: rgba(6, 182, 212, 0.15);
+            color: var(--accent-cyan);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+
+        .chunk-text {
+            color: var(--text-main);
+            font-weight: 500;
+        }
+
+        .chunk-status {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .chunk-status.ready { color: var(--accent-emerald); }
+        .chunk-status.playing { color: var(--accent-cyan); }
+        .chunk-status.queued { color: var(--accent-amber); }
+
+        /* Turn History Panel */
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 220px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .history-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-faint);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.75rem;
+        }
+
+        .history-dialogue {
+            color: var(--text-dim);
+            line-height: 1.4;
+        }
+
+        .history-dialogue strong {
+            color: var(--text-main);
+        }
+
+        /* Bottom Controls Footer */
+        .mirror-footer {
+            width: 100%;
+            padding: 18px 36px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--border-glass);
+            background: rgba(5, 7, 12, 0.85);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            bottom: 0;
+            z-index: 50;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .quick-triggers {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .quick-btn {
+            background: rgba(255, 255, 255, 0.04);
+            color: #ffffff;
+            border: 1px solid var(--border-glass);
+            padding: 8px 16px;
+            border-radius: 9999px;
+            font-size: 0.88rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .quick-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .test-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            max-width: 440px;
+        }
+
+        .test-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            border-radius: 9999px;
+            padding: 8px 16px;
+            color: #ffffff;
+            font-family: inherit;
+            font-size: 0.88rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .test-input:focus {
+            border-color: var(--accent-cyan);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 12px rgba(6, 182, 212, 0.2);
+        }
+
+        .send-btn {
+            background: var(--accent-cyan);
+            color: #05070c;
+            font-weight: 600;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 9999px;
+            font-size: 0.88rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .send-btn:hover {
+            background: #22d3ee;
+            transform: scale(1.04);
+        }
+
+        /* Scrollbar aesthetics */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* ==================================================================== */
+        /* Flat Database Skills Cards (Contacts & Reminders)                    */
+        /* ==================================================================== */
+        .skills-data-grid {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-top: 4px;
+        }
+
+        @media (max-width: 900px) {
+            .skills-data-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .skill-card {
+            background: var(--surface-card);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 16px 18px;
+            backdrop-filter: blur(14px);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .skill-card:hover {
+            border-color: var(--border-hover);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        .skill-card.glow-pulse {
+            animation: skillGlowAnim 1.6s ease;
+        }
+
+        @keyframes skillGlowAnim {
+            0% { box-shadow: 0 0 0 rgba(6, 182, 212, 0); border-color: var(--border-glass); }
+            30% { box-shadow: 0 0 35px rgba(6, 182, 212, 0.6); border-color: var(--accent-cyan); transform: scale(1.01); }
+            100% { box-shadow: 0 0 0 rgba(6, 182, 212, 0); border-color: var(--border-glass); transform: scale(1); }
+        }
+
+        .skill-card.glow-emerald {
+            animation: skillGlowEmeraldAnim 1.6s ease;
+        }
+
+        @keyframes skillGlowEmeraldAnim {
+            0% { box-shadow: 0 0 0 rgba(16, 185, 129, 0); border-color: var(--border-glass); }
+            30% { box-shadow: 0 0 35px rgba(16, 185, 129, 0.6); border-color: var(--accent-emerald); transform: scale(1.01); }
+            100% { box-shadow: 0 0 0 rgba(16, 185, 129, 0); border-color: var(--border-glass); transform: scale(1); }
+        }
+
+        .skill-card.glow-amber {
+            animation: skillGlowAmberAnim 1.6s ease;
+        }
+
+        @keyframes skillGlowAmberAnim {
+            0% { box-shadow: 0 0 0 rgba(245, 158, 11, 0); border-color: var(--border-glass); }
+            30% { box-shadow: 0 0 35px rgba(245, 158, 11, 0.6); border-color: #f59e0b; transform: scale(1.01); }
+            100% { box-shadow: 0 0 0 rgba(245, 158, 11, 0); border-color: var(--border-glass); transform: scale(1); }
+        }
+
+        .skill-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .skill-title-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-main);
+            letter-spacing: 0.3px;
+        }
+
+        .skill-icon-badge {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+
+        .skill-actions-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .count-pill {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border-glass);
+            color: var(--text-dim);
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 500;
+        }
+
+        .icon-action-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            color: var(--text-dim);
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .icon-action-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+            transform: scale(1.1);
+        }
+
+        .data-items-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 200px;
+            min-height: 120px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .empty-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 10px;
+            color: var(--text-faint);
+            font-size: 0.85rem;
+            text-align: center;
+            gap: 6px;
+        }
+
+        /* Contact Row Item */
+        .contact-item-row {
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+            animation: fadeInItem 0.3s ease;
+        }
+
+        .contact-item-row:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(16, 185, 129, 0.3);
+            transform: translateX(2px);
+        }
+
+        @keyframes fadeInItem {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .contact-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            overflow: hidden;
+        }
+
+        .contact-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.2));
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            color: var(--accent-emerald);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+
+        .contact-details {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            overflow: hidden;
+        }
+
+        .contact-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .contact-phone {
+            font-family: 'Outfit', monospace;
+            font-size: 0.8rem;
+            color: var(--accent-cyan);
+            letter-spacing: 0.5px;
+        }
+
+        .item-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .item-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-glass);
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .item-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+        }
+
+        .item-btn.btn-delete:hover {
+            background: rgba(244, 63, 94, 0.15);
+            border-color: rgba(244, 63, 94, 0.4);
+            color: var(--accent-rose);
+        }
+
+        /* Reminder Row Item */
+        .reminder-item-row {
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+            animation: fadeInItem 0.3s ease;
+        }
+
+        .reminder-item-row:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(6, 182, 212, 0.3);
+            transform: translateX(2px);
+        }
+
+        .reminder-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            overflow: hidden;
+        }
+
+        .reminder-day-badge {
+            background: rgba(6, 182, 212, 0.12);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            color: var(--accent-cyan);
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            flex-shrink: 0;
+            text-transform: capitalize;
+        }
+
+        .reminder-task-text {
+            font-size: 0.88rem;
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Grocery Row Item */
+        .grocery-item-row {
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+            animation: fadeInItem 0.3s ease;
+        }
+
+        .grocery-item-row:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(245, 158, 11, 0.4);
+            transform: translateX(2px);
+        }
+
+        .grocery-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            overflow: hidden;
+        }
+
+        .grocery-badge {
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #fbbf24;
+            padding: 2px 7px;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .grocery-name {
+            font-size: 0.85rem;
+            color: var(--text-main);
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Lending an Ear Active State */
+        .badge-lending-active {
+            border-color: rgba(245, 158, 11, 0.7) !important;
+            background: rgba(245, 158, 11, 0.15) !important;
+            color: #fbbf24 !important;
+            box-shadow: 0 0 16px rgba(245, 158, 11, 0.45);
+            animation: pulseEar 1.5s infinite alternate ease-in-out;
+        }
+
+        @keyframes pulseEar {
+            0% { box-shadow: 0 0 6px rgba(245, 158, 11, 0.3); transform: scale(1); }
+            100% { box-shadow: 0 0 18px rgba(245, 158, 11, 0.8); transform: scale(1.04); }
+        }
+
+        /* Mini Inline Add Forms */
+        .inline-add-box {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            animation: slideDownForm 0.25s ease;
+        }
+
+        @keyframes slideDownForm {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .mini-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border-glass);
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 0.82rem;
+            color: #ffffff;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .mini-input:focus {
+            border-color: var(--accent-cyan);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .mini-btn {
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+        }
+
+        .mini-btn-submit {
+            background: var(--accent-cyan);
+            color: #05070c;
+        }
+        .mini-btn-submit:hover {
+            background: #22d3ee;
+        }
+
+        .mini-btn-cancel {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-dim);
+        }
+        .mini-btn-cancel:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+        }
+
+        /* Floating Skill Toast */
+        .skill-toast {
+            position: fixed;
+            top: 90px;
+            right: 36px;
+            background: rgba(18, 24, 38, 0.95);
+            border: 1px solid var(--accent-cyan);
+            border-radius: 12px;
+            padding: 12px 18px;
+            color: #ffffff;
+            font-size: 0.88rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(6, 182, 212, 0.3);
+            z-index: 100;
+            transform: translateX(120%);
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            backdrop-filter: blur(12px);
+        }
+
+        .skill-toast.show {
+            transform: translateX(0);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Smart Mirror Bar -->
+    <header class="mirror-header">
+        <div class="clock-section">
+            <div class="digital-clock" id="digital-clock">--:--</div>
+            <div class="calendar-date" id="calendar-date">दिनांक लोड हो रहा है...</div>
+        </div>
+
+        <div class="system-badges">
+            <div class="badge-pill badge-live" id="sse-badge">
+                <span class="live-dot"></span>
+                <span id="sse-text">लाइव पाइपलाइन सक्रिय</span>
+            </div>
+            <div class="badge-pill" id="stt-badge">
+                <span>🎙️ 16kHz VAD (150ms)</span>
+            </div>
+            <div class="badge-pill" id="llm-badge">
+                <span>🧠 Ollama</span>
+            </div>
+            <div class="badge-pill" id="tts-badge">
+                <span>🐱 Kitten-TTS 2 (MLX Apple Silicon)</span>
+            </div>
+            <div class="badge-pill" id="lending-ear-badge" style="border-color: rgba(245, 158, 11, 0.3); transition: all 0.3s ease;">
+                <span class="live-dot" id="lending-ear-dot" style="background: #f59e0b; opacity: 0.5;"></span>
+                <span id="lending-ear-text">👂 Lending an Ear (Passive)</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Stage -->
+    <main class="main-container">
+
+        <!-- Left Stage: Avatar & Live Speech Transcript -->
+        <section class="stage-column">
+            
+            <!-- Reactive Avatar -->
+            <div class="avatar-stage" id="avatar-container">
+                <canvas id="visualizer-canvas"></canvas>
+                <div class="avatar-aura" id="avatar-aura"></div>
+                <div class="avatar-frame" id="avatar-frame">
+                    <svg viewBox="0 0 100 100" width="100%" height="100%">
+                        <!-- Left & Right Eyes with blinking -->
+                        <circle class="eye eye-blink" cx="35" cy="42" r="5" />
+                        <circle class="eye eye-blink" cx="65" cy="42" r="5" />
+                        
+                        <!-- Reactive Lipsync Mouth -->
+                        <path id="avatar-mouth" d="M 36 65 Q 50 74 64 65" />
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Status Indicator Pill -->
+            <div class="status-badge-banner" id="status-banner">
+                <span id="status-icon">👂</span>
+                <span id="status-msg">सुन रहा हूँ... (माइक में सीधे हिंदी में बोलें)</span>
+            </div>
+
+            <!-- Real-time Dialogue Subtitles: 3 Distinct Visual Containers -->
+            <div class="dialogue-wrapper">
+                
+                <!-- UI CARD 1: WHAT THE MIRROR HEARD (STT ELEMENT) -->
+                <div class="card stt-card dialogue-card" id="user-card">
+                    <div class="card-header" style="margin-bottom: 8px;">
+                        <span class="badge status-orange">🎙️ दादाजी (SPEECH-TO-TEXT)</span>
+                        <span class="metric-stamp" id="user-stt-time">STT: --</span>
+                    </div>
+                    <div id="stt-output-text" class="display-box-large dialogue-text">नमस्ते! बोलिए दादाजी...</div>
+                </div>
+
+                <!-- UI CARD 2: DEVELOPER TELEMETRY LAYER (THE AI BRAIN INTERNAL THOUGHTS) -->
+                <div class="card developer-brain-card dialogue-card" id="dev-card">
+                    <div class="card-header" style="margin-bottom: 8px;">
+                        <span class="badge status-blue">🧠 केयरटेकर (INTERNAL COGNITIVE THOUGHTS - DEV USE ONLY)</span>
+                        <span class="metric-stamp" id="ai-ttft-time">TTFT: --</span>
+                    </div>
+                    <div id="dev-thoughts-box" class="display-box-medium text-dimmed">
+                        [आंतरिक संज्ञानात्मक विचार यहाँ दिखाई देंगे - Developer Telemetry Active]
+                    </div>
+                </div>
+
+                <!-- UI CARD 3: THE CAREGIVER RESPONSE (WHAT GOES TO THE GRANDPARENTS & SPEAKER) -->
+                <div class="card response-card dialogue-card" id="ai-card">
+                    <div class="card-header" style="margin-bottom: 8px;">
+                        <span class="badge status-green">👵 केयरटेकर (FINAL RESPONSE - AUDIO SYNCED)</span>
+                        <span class="metric-stamp" id="audio-status-stamp">🔊 केवल ऑडियो प्लेबैक</span>
+                    </div>
+                    <div id="final-hindi-box" class="display-box-large text-glow dialogue-text caretaker-text">
+                        नमस्ते दादाजी! मैं हमेशा आपकी सेवा में उपस्थित हूँ।
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Flat Databases & Active Skills Hub (Contacts & Reminders) -->
+            <div class="skills-data-grid" id="skills-database-section">
+                
+                <!-- Card 1: Contacts Flat Database -->
+                <div class="skill-card" id="contacts-card">
+                    <div class="skill-header">
+                        <div class="skill-title-left">
+                            <div class="skill-icon-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald);">📇</div>
+                            <span>संपर्क डायरेक्टरी (contacts.json)</span>
+                        </div>
+                        <div class="skill-actions-right">
+                            <span class="count-pill" id="contacts-count-badge">0 संपर्क</span>
+                            <button class="icon-action-btn" title="रिफ्रेश करें" onclick="loadContactsData()">🔄</button>
+                            <button class="icon-action-btn" title="नया संपर्क जोड़ें" onclick="toggleAddContactForm()">➕</button>
+                        </div>
+                    </div>
+
+                    <!-- Inline Add Contact Form -->
+                    <div class="inline-add-box" id="add-contact-form" style="display: none;">
+                        <div class="form-row">
+                            <input type="text" id="new-contact-name" placeholder="नाम (उदा. सुरेश)..." class="mini-input">
+                            <input type="text" id="new-contact-phone" placeholder="फ़ोन नंबर (उदा. 9876543210)..." class="mini-input">
+                        </div>
+                        <div class="form-row" style="justify-content: flex-end;">
+                            <button class="mini-btn mini-btn-cancel" onclick="toggleAddContactForm()">रद्द करें</button>
+                            <button class="mini-btn mini-btn-submit" onclick="saveNewContact()">सेव करें</button>
+                        </div>
+                    </div>
+
+                    <!-- Scrollable Contacts List -->
+                    <div class="data-items-list" id="contacts-list-container">
+                        <div class="empty-placeholder">
+                            <span>लोड हो रहा है...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Reminders Flat Database -->
+                <div class="skill-card" id="reminders-card">
+                    <div class="skill-header">
+                        <div class="skill-title-left">
+                            <div class="skill-icon-badge" style="background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan);">⏰</div>
+                            <span>सक्रिय रिमाइंडर (reminders.json)</span>
+                        </div>
+                        <div class="skill-actions-right">
+                            <span class="count-pill" id="reminders-count-badge">0 रिमाइंडर</span>
+                            <button class="icon-action-btn" title="रिफ्रेश करें" onclick="loadRemindersData()">🔄</button>
+                            <button class="icon-action-btn" title="नया रिमाइंडर जोड़ें" onclick="toggleAddReminderForm()">➕</button>
+                        </div>
+                    </div>
+
+                    <!-- Inline Add Reminder Form -->
+                    <div class="inline-add-box" id="add-reminder-form" style="display: none;">
+                        <div class="form-row">
+                            <input type="text" id="new-reminder-day" placeholder="दिन/समय (उदा. गुरुवार)..." class="mini-input" style="max-width: 130px;">
+                            <input type="text" id="new-reminder-task" placeholder="कार्य विवरण (उदा. अर्जुन को कॉल)..." class="mini-input">
+                        </div>
+                        <div class="form-row" style="justify-content: flex-end;">
+                            <button class="mini-btn mini-btn-cancel" onclick="toggleAddReminderForm()">रद्द करें</button>
+                            <button class="mini-btn mini-btn-submit" onclick="saveNewReminder()">सेट करें</button>
+                        </div>
+                    </div>
+
+                    <!-- Scrollable Reminders List -->
+                    <div class="data-items-list" id="reminders-list-container">
+                        <div class="empty-placeholder">
+                            <span>लोड हो रहा है...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Grocery Flat Database (Kitchen Inventory) -->
+                <div class="skill-card" id="grocery-card">
+                    <div class="skill-header">
+                        <div class="skill-title-left">
+                            <div class="skill-icon-badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">🛒</div>
+                            <span>रसोई राशन (grocery.json)</span>
+                        </div>
+                        <div class="skill-actions-right">
+                            <span class="count-pill" id="grocery-count-badge">0 सामान</span>
+                            <button class="icon-action-btn" title="रिफ्रेश करें" onclick="loadGroceryData()">🔄</button>
+                            <button class="icon-action-btn" title="सामान जोड़ें" onclick="toggleAddGroceryForm()">➕</button>
+                        </div>
+                    </div>
+
+                    <!-- Inline Add Grocery Form -->
+                    <div class="inline-add-box" id="add-grocery-form" style="display: none;">
+                        <div class="form-row">
+                            <input type="text" id="new-grocery-item" placeholder="सामान का नाम (उदा. आशीर्वाद आटा)..." class="mini-input">
+                        </div>
+                        <div class="form-row" style="justify-content: flex-end;">
+                            <button class="mini-btn mini-btn-cancel" onclick="toggleAddGroceryForm()">रद्द करें</button>
+                            <button class="mini-btn mini-btn-submit" style="background: #f59e0b; color: #05070c;" onclick="saveNewGroceryItem()">जोड़ें</button>
+                        </div>
+                    </div>
+
+                    <!-- Scrollable Grocery List -->
+                    <div class="data-items-list" id="grocery-list-container">
+                        <div class="empty-placeholder">
+                            <span>लोड हो रहा है...</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- Right Stage: Telemetry & Pipeline Inspector -->
+        <section class="telemetry-column">
+
+            <!-- 1. Latency Breakdown Grid -->
+            <div class="glass-panel">
+                <div class="panel-title">
+                    <span>⚡ मिलीसेकंड लेटेंसी टेलीमेट्री (Latency Breakdown)</span>
+                    <span id="turn-id-badge" style="font-size: 0.78rem; color: var(--accent-cyan);">टर्न: #0</span>
+                </div>
+
+                <!-- Waterfall Step Progress -->
+                <div class="pipeline-stepper">
+                    <div class="stepper-line"></div>
+                    <div class="stepper-progress" id="stepper-progress"></div>
+
+                    <div class="step-node" id="step-vad">
+                        <div class="step-circle">🎙️</div>
+                        <div class="step-label">VAD</div>
+                    </div>
+                    <div class="step-node" id="step-stt">
+                        <div class="step-circle">🔍</div>
+                        <div class="step-label">Whisper</div>
+                    </div>
+                    <div class="step-node" id="step-llm">
+                        <div class="step-circle">🧠</div>
+                        <div class="step-label">Ollama</div>
+                    </div>
+                    <div class="step-node" id="step-tts">
+                        <div class="step-circle">🐱</div>
+                        <div class="step-label">Kitten-TTS</div>
+                    </div>
+                    <div class="step-node" id="step-play">
+                        <div class="step-circle">🔊</div>
+                        <div class="step-label">Audio</div>
+                    </div>
+                </div>
+
+                <div class="metrics-grid">
+                    <div class="metric-cell" id="metric-cell-stt">
+                        <div class="metric-header">🔍 STT Whisper</div>
+                        <div class="metric-value" id="val-stt">--</div>
+                        <div class="metric-sub" id="metric-sub-stt">MSpider3 Swift-CT2</div>
+                    </div>
+
+                    <div class="metric-cell" id="metric-cell-ttft">
+                        <div class="metric-header">🧠 Brain TTFT</div>
+                        <div class="metric-value" id="val-ttft">--</div>
+                        <div class="metric-sub">Time to First Token</div>
+                    </div>
+
+                    <div class="metric-cell" id="metric-cell-tts">
+                        <div class="metric-header">🐱 1st Chunk TTS</div>
+                        <div class="metric-value" id="val-tts">--</div>
+                        <div class="metric-sub">Kitten-TTS 2 (MLX)</div>
+                    </div>
+
+                    <div class="metric-cell cell-total" id="metric-cell-play">
+                        <div class="metric-header">🔊 First Audio Play</div>
+                        <div class="metric-value" id="val-play">--</div>
+                        <div class="metric-sub">Zero-perceived latency</div>
+                    </div>
+
+                    <div class="metric-cell" id="metric-cell-total">
+                        <div class="metric-header">⏱️ Total Turn</div>
+                        <div class="metric-value" id="val-total">--</div>
+                        <div class="metric-sub">Full response complete</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Parallel Streaming 3-Word Chunks Inspector -->
+            <div class="glass-panel">
+                <div class="panel-title">
+                    <span>📦 Semantic Clause Pipeline (Hybrid Kitten-TTS 2 Interceptor)</span>
+                    <span id="chunk-count-badge" style="font-size: 0.78rem; color: var(--accent-emerald);">0 क्लॉज़</span>
+                </div>
+
+                <div class="chunk-stream-box" id="chunk-stream-list">
+                    <div style="color: var(--text-faint); font-size: 0.85rem; text-align: center; padding: 12px;">
+                        जैसे ही आप बोलेंगे, पहला टुकड़ा तुरंत बजेगा और बाकी पूरे सिमेंटिक क्लॉज़ (वाक्यांश) में रीयल-टाइम में दिखेंगे...
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Turn History Log -->
+            <div class="glass-panel">
+                <div class="panel-title">
+                    <span>📜 वार्तालाप इतिहास (Turn History)</span>
+                    <button class="quick-btn" style="padding: 2px 10px; font-size: 0.75rem;" onclick="clearHistory()">साफ़ करें</button>
+                </div>
+
+                <div class="history-list" id="history-container">
+                    <div style="color: var(--text-faint); font-size: 0.82rem; text-align: center; padding: 10px;">
+                        अभी तक कोई पिछला वार्तालाप नहीं है।
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Bottom Controls & Quick Prompts Footer -->
+    <footer class="mirror-footer">
+        <div class="quick-triggers">
+            <span style="font-size: 0.8rem; color: var(--text-faint); margin-right: 4px;">4-Stage Benchmark Vectors:</span>
+            <button class="quick-btn" style="border-color: var(--accent-cyan); color: var(--accent-cyan);" onclick="sendDirectPrompt('Remind me on Thursday to call Arjun')">📅 V1: Remind Arjun</button>
+            <button class="quick-btn" style="border-color: var(--accent-cyan); color: var(--accent-cyan);" onclick="sendDirectPrompt('Mera koi reminder hai kya is hafte?')">🔍 V2: Is hafte reminders?</button>
+            <button class="quick-btn" style="border-color: var(--accent-cyan); color: var(--accent-cyan);" onclick="sendDirectPrompt('Rohan wala kal ka reminder cancel kar do')">❌ V3: Cancel Rohan</button>
+            <button class="quick-btn" style="border-color: var(--accent-emerald); color: var(--accent-emerald);" onclick="sendDirectPrompt('Save new contact Suresh phone number 98765 43210')">👤 V4: Save Suresh</button>
+            <button class="quick-btn" style="border-color: var(--accent-emerald); color: var(--accent-emerald);" onclick="sendDirectPrompt('Ramesh ka phone number kya hai batana?')">📞 V5: Ramesh number?</button>
+            <button class="quick-btn" style="border-color: #f59e0b; color: #fbbf24;" onclick="sendDirectPrompt('Beta, rashan me aashirvaad aata aur tata namak khatam hai, likh lo')">🛒 V6: Rashan Atta/Namak</button>
+            <button class="quick-btn" style="border-color: #f59e0b; color: #fbbf24;" onclick="sendDirectPrompt('Mirror, dadi ne rashan me kya likhvaya hai?')">📋 V7: Rashan Review</button>
+            <button class="quick-btn" style="border-color: #ec4899; color: #f472b6;" onclick="sendDirectPrompt('Kya mai subah ki khali pet wali sugar ki goli kha sakta hu abhi?')">💊 V8: Khali Pet Goli</button>
+            <button class="quick-btn" style="border-color: #eab308; color: #fde047;" onclick="sendDirectPrompt('Hamare zamane me to ₹10 me pura rashan aa jata tha, ab dekho kitna mahanga hai')">👂 V9: Purana Zamana ₹10</button>
+            <button class="quick-btn" style="border-color: #a855f7; color: #c084fc;" onclick="sendDirectPrompt('Ghar me bahut sannata hai, koi baat karne wala nahi hai')">🗣️ V10: Ghar Me Sannata</button>
+        </div>
+
+        <div class="test-input-wrapper">
+            <input type="text" id="manual-prompt-input" class="test-input" placeholder="यहाँ लिखकर पाइपलाइन टेस्ट करें..." onkeydown="handleInputKey(event)">
+            <button class="send-btn" id="manual-send-btn" onclick="sendManualPrompt()">भेजें</button>
+        </div>
+    </footer>
+
+    <!-- Frontend Controller Logic -->
+    <script>
+        // DOM Elements
+        const clockEl = document.getElementById('digital-clock');
+        const dateEl = document.getElementById('calendar-date');
+        const avatarWrapper = document.getElementById('avatar-container');
+        const avatarMouth = document.getElementById('avatar-mouth');
+        const canvas = document.getElementById('visualizer-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 280;
+        canvas.height = 280;
+
+        const sseBadge = document.getElementById('sse-badge');
+        const sseText = document.getElementById('sse-text');
+        const statusBanner = document.getElementById('status-banner');
+        const statusIcon = document.getElementById('status-icon');
+        const statusMsg = document.getElementById('status-msg');
+        const sttOutputText = document.getElementById('stt-output-text');
+        const devThoughtsBox = document.getElementById('dev-thoughts-box');
+        const finalHindiBox = document.getElementById('final-hindi-box');
+
+        // Aliases for compatibility
+        const userTranscript = sttOutputText;
+        const aiResponse = finalHindiBox;
+        const userSttTime = document.getElementById('user-stt-time');
+        const aiTtftTime = document.getElementById('ai-ttft-time');
+
+        const valStt = document.getElementById('val-stt');
+        const valTtft = document.getElementById('val-ttft');
+        const valTts = document.getElementById('val-tts');
+        const valPlay = document.getElementById('val-play');
+        const valTotal = document.getElementById('val-total');
+        const turnIdBadge = document.getElementById('turn-id-badge');
+        const chunkCountBadge = document.getElementById('chunk-count-badge');
+        const stepperProgress = document.getElementById('stepper-progress');
+
+        const chunkStreamList = document.getElementById('chunk-stream-list');
+        const historyContainer = document.getElementById('history-container');
+
+        let isSpeakingAi = false;
+        let mouthAnimId = null;
+        let waveAnimId = null;
+        let currentTurnChunks = [];
+        let historyTurns = [];
+
+        // Clock & Date updater
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            clockEl.innerText = `${hours}:${minutes}`;
+
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            dateEl.innerText = now.toLocaleDateString('hi-IN', options);
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // --------------------------------------------------------------------
+        // Server-Sent Events (SSE) Live Telemetry Stream
+        // --------------------------------------------------------------------
+        let evtSource = null;
+
+        function connectSSE() {
+            if (evtSource) {
+                evtSource.close();
+            }
+
+            evtSource = new EventSource('/stream_events');
+
+            evtSource.onopen = () => {
+                sseBadge.classList.add('badge-live');
+                sseText.innerText = "लाइव पाइपलाइन सक्रिय";
+            };
+
+            evtSource.onmessage = (e) => {
+                try {
+                    const msg = JSON.parse(e.data);
+                    handlePipelineEvent(msg.event, msg.data);
+                } catch (err) {
+                    console.error("SSE parse error:", err, e.data);
+                }
+            };
+
+            evtSource.onerror = () => {
+                sseBadge.classList.remove('badge-live');
+                sseText.innerText = "पुनः कनेक्ट हो रहा है...";
+                setTimeout(connectSSE, 2500);
+            };
+        }
+
+        connectSSE();
+
+        // --------------------------------------------------------------------
+        // Pipeline Event Handler
+        // --------------------------------------------------------------------
+        function handlePipelineEvent(event, data) {
+            console.log(`[SSE: ${event}]`, data);
+
+            switch (event) {
+                case 'init':
+                    if (data.llm_model) {
+                        document.getElementById('llm-badge').innerText = `🧠 ${data.llm_model}`;
+                    }
+                    if (data.tts_backend) {
+                        document.getElementById('tts-badge').innerText = `🐱 ${data.tts_backend}`;
+                    }
+                    if (data.stt_model) {
+                        document.getElementById('stt-badge').innerText = `🎙️ ${data.stt_model}`;
+                        const sub = document.getElementById('metric-sub-stt');
+                        if (sub) sub.innerText = data.stt_model;
+                    }
+                    break;
+
+
+                case 'vad_status':
+                    updateVadStatus(data.state, data.msg);
+                    break;
+
+                case 'stt_result':
+                    setAvatarMood('thinking');
+                    sttOutputText.innerText = data.text;
+                    userSttTime.innerText = `STT: ${data.duration_ms} ms`;
+                    valStt.innerText = `${data.duration_ms} ms`;
+                    document.getElementById('metric-cell-stt').classList.add('cell-done');
+                    setStepState('step-stt', 'done');
+                    setStepState('step-llm', 'active');
+                    stepperProgress.style.width = '50%';
+                    devThoughtsBox.innerHTML = `<span class="typing-cursor"></span>`;
+                    finalHindiBox.innerHTML = ``;
+                    currentTurnChunks = [];
+                    chunkStreamList.innerHTML = '';
+                    break;
+
+                case 'first_token':
+                    valTtft.innerText = `${data.ttft_ms} ms`;
+                    aiTtftTime.innerText = `TTFT: ${data.ttft_ms} ms`;
+                    document.getElementById('metric-cell-ttft').classList.add('cell-done');
+                    setStepState('step-llm', 'done');
+                    setStepState('step-tts', 'active');
+                    stepperProgress.style.width = '70%';
+                    if (data.token) {
+                        devThoughtsBox.innerHTML = `${escapeHtml(data.token)}<span class="typing-cursor"></span>`;
+                    }
+                    break;
+
+                case 'dev_thought_token':
+                    const cleanLiveThoughts = data.full.replace(/(?:So I will respond,?\s*|respond,?\s*)$/i, '');
+                    devThoughtsBox.innerHTML = `${escapeHtml(cleanLiveThoughts)}<span class="typing-cursor"></span>`;
+                    devThoughtsBox.scrollTop = devThoughtsBox.scrollHeight;
+                    break;
+
+                case 'dev_thoughts_done':
+                    devThoughtsBox.innerText = data.full.replace(/(?:So I will respond,?\s*|respond,?\s*)$/i, '').trim();
+                    if (!finalHindiBox.innerHTML || finalHindiBox.innerHTML === '') {
+                        finalHindiBox.innerHTML = `<span class="typing-cursor"></span>`;
+                    }
+                    break;
+
+                case 'final_hindi_token':
+                    const cleanHindi = data.full.replace(/^[\s,।!?-]+/, '');
+                    finalHindiBox.innerHTML = `${escapeHtml(cleanHindi)}<span class="typing-cursor"></span>`;
+                    break;
+
+                case 'llm_token':
+                    finalHindiBox.innerHTML = `${escapeHtml(data.full.replace(/^[\s,।!?-]+/, ''))}<span class="typing-cursor"></span>`;
+                    break;
+
+                case 'chunk_intercepted':
+                    addChunkToMatrix(data.chunk_num, data.text, 'intercepted', data.since_speech_end_ms);
+                    break;
+
+                case 'tts_start':
+                    break;
+
+                case 'tts_ready':
+                    updateChunkInMatrix(data.text, 'ready', data.gen_ms, data.audio_dur_s);
+                    if (!valTts.innerText || valTts.innerText === '--') {
+                        valTts.innerText = `${data.gen_ms} ms`;
+                        document.getElementById('metric-cell-tts').classList.add('cell-done');
+                        setStepState('step-tts', 'done');
+                        setStepState('step-play', 'active');
+                        stepperProgress.style.width = '88%';
+                    }
+                    break;
+
+                case 'playback_first':
+                    valPlay.innerText = `${data.latency_ms} ms`;
+                    document.getElementById('metric-cell-play').classList.add('cell-done');
+                    setStepState('step-play', 'done');
+                    stepperProgress.style.width = '100%';
+                    break;
+
+                case 'playback_chunk':
+                    triggerSpeakingAnimation(data.duration_s || 1.5, data.text);
+                    updateChunkInMatrix(data.text, 'playing');
+                    break;
+
+                case 'turn_summary':
+                    recordTurnSummary(data);
+                    break;
+
+                case 'skill_event':
+                    flashSkillCard(data.skill);
+                    showSkillToast(`⚡ स्किल ट्रिगर: ${data.skill} (${data.action})`, '⚡');
+                    loadContactsData();
+                    loadRemindersData();
+                    loadGroceryData();
+                    if (data.skill === 'companion_chat' || data.skill === 'check_routine_timetable') {
+                        activateLendingEarIndicator();
+                    }
+                    break;
+
+
+            }
+        }
+
+        // --------------------------------------------------------------------
+        // VAD Visual States
+        // --------------------------------------------------------------------
+        function updateVadStatus(state, msg) {
+            statusMsg.innerText = msg;
+
+            if (state === 'speaking') {
+                statusIcon.innerText = "🗣️";
+                setAvatarMood('speaking-user');
+                setStepState('step-vad', 'active');
+                stepperProgress.style.width = '25%';
+                // Reset timing cells for a fresh turn
+                resetTelemetryCells();
+            } else if (state === 'processing') {
+                statusIcon.innerText = "🔍";
+                setAvatarMood('thinking');
+                setStepState('step-vad', 'done');
+                setStepState('step-stt', 'active');
+                stepperProgress.style.width = '35%';
+            } else if (state === 'listening') {
+                statusIcon.innerText = "👂";
+                setAvatarMood('listening');
+            }
+        }
+
+        function setAvatarMood(mood) {
+            avatarWrapper.classList.remove(
+                'state-listening',
+                'state-speaking-user',
+                'state-thinking',
+                'state-speaking-ai'
+            );
+            if (mood === 'listening') avatarWrapper.classList.add('state-listening');
+            else if (mood === 'speaking-user') avatarWrapper.classList.add('state-speaking-user');
+            else if (mood === 'thinking') avatarWrapper.classList.add('state-thinking');
+            else if (mood === 'speaking-ai') avatarWrapper.classList.add('state-speaking-ai');
+        }
+
+        function setStepState(stepId, state) {
+            const el = document.getElementById(stepId);
+            if (!el) return;
+            el.classList.remove('active', 'done');
+            if (state) el.classList.add(state);
+        }
+
+        function resetTelemetryCells() {
+            ['metric-cell-stt', 'metric-cell-ttft', 'metric-cell-tts', 'metric-cell-play', 'metric-cell-total'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('cell-active', 'cell-done');
+            });
+            valStt.innerText = '--';
+            valTtft.innerText = '--';
+            valTts.innerText = '--';
+            valPlay.innerText = '--';
+            valTotal.innerText = '--';
+            stepperProgress.style.width = '0%';
+            ['step-vad', 'step-stt', 'step-llm', 'step-tts', 'step-play'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('active', 'done');
+            });
+        }
+
+        // --------------------------------------------------------------------
+        // 3-Word Chunk Stream Matrix
+        // --------------------------------------------------------------------
+        function addChunkToMatrix(num, text, status, sinceMs) {
+            currentTurnChunks.push({ num, text, status, sinceMs });
+            chunkCountBadge.innerText = `${currentTurnChunks.length} टुकड़े`;
+
+            const item = document.createElement('div');
+            item.className = 'chunk-badge';
+            item.id = `chunk-item-${num}`;
+            item.innerHTML = `
+                <div class="chunk-left">
+                    <span class="chunk-tag">#${num}</span>
+                    <span class="chunk-text">"${escapeHtml(text)}"</span>
+                </div>
+                <div class="chunk-status queued" id="chunk-status-${num}">
+                    <span>⏳ Intercepted (+${sinceMs}ms)</span>
+                </div>
+            `;
+            chunkStreamList.appendChild(item);
+            chunkStreamList.scrollTop = chunkStreamList.scrollHeight;
+        }
+
+        function updateChunkInMatrix(text, status, genMs, durS) {
+            const found = currentTurnChunks.find(c => text.includes(c.text) || c.text.includes(text));
+            if (!found) return;
+
+            const stEl = document.getElementById(`chunk-status-${found.num}`);
+            if (!stEl) return;
+
+            if (status === 'ready') {
+                stEl.className = 'chunk-status ready';
+                stEl.innerHTML = `<span>⚡ ${genMs}ms MLX (${durS}s audio)</span>`;
+            } else if (status === 'playing') {
+                stEl.className = 'chunk-status playing';
+                stEl.innerHTML = `<span>🔊 बज रहा है (Speaking...)</span>`;
+            }
+        }
+
+        // --------------------------------------------------------------------
+        // Animated Lipsync Mouth & Visualizer
+        // --------------------------------------------------------------------
+        function triggerSpeakingAnimation(durationSeconds, chunkText) {
+            setAvatarMood('speaking-ai');
+            isSpeakingAi = true;
+
+            const startTime = performance.now();
+            const durationMs = durationSeconds * 1000;
+
+            function animateMouth(now) {
+                const elapsed = now - startTime;
+                if (elapsed >= durationMs) {
+                    avatarMouth.setAttribute('d', 'M 36 65 Q 50 74 64 65');
+                    clearVisualizer();
+                    isSpeakingAi = false;
+                    setAvatarMood('listening');
+                    return;
+                }
+
+                // Smooth organic mouth flapping
+                const freq = 12; // syllables per second oscillation
+                const wave = Math.sin(elapsed / 1000 * Math.PI * 2 * freq);
+                const openY = 74 + Math.max(0, wave) * 16;
+                avatarMouth.setAttribute('d', `M 36 65 Q 50 ${openY.toFixed(1)} 64 65`);
+
+                // Draw soundwave ring
+                drawWaveRing(Math.abs(wave));
+
+                mouthAnimId = requestAnimationFrame(animateMouth);
+            }
+
+            cancelAnimationFrame(mouthAnimId);
+            mouthAnimId = requestAnimationFrame(animateMouth);
+        }
+
+        function drawWaveRing(intensity) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const baseRadius = 100;
+
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(6, 182, 212, ${0.3 + intensity * 0.7})`;
+            ctx.lineWidth = 2.5;
+
+            const points = 48;
+            for (let i = 0; i < points; i++) {
+                const angle = (i / points) * Math.PI * 2;
+                const offset = Math.sin(angle * 6 + performance.now() / 150) * (intensity * 14);
+                const r = baseRadius + offset;
+                const x = cx + Math.cos(angle) * r;
+                const y = cy + Math.sin(angle) * r;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.stroke();
+        }
+
+        function clearVisualizer() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // --------------------------------------------------------------------
+        // Turn Summary & History Logging
+        // --------------------------------------------------------------------
+        function recordTurnSummary(summary) {
+            turnIdBadge.innerText = `टर्न: #${summary.turn_id}`;
+            valTotal.innerText = `${summary.total_ms} ms`;
+            document.getElementById('metric-cell-total').classList.add('cell-done');
+
+            // Set final clean values on Card 2 and Card 3
+            if (summary.dev_thoughts) {
+                devThoughtsBox.innerText = summary.dev_thoughts.replace(/(?:So I will respond,?\s*|respond,?\s*)$/i, '').trim();
+            }
+            if (summary.final_hindi) {
+                finalHindiBox.innerText = summary.final_hindi.replace(/^[\s,।!?-]+/, '');
+            } else if (summary.ai_said) {
+                finalHindiBox.innerText = summary.ai_said.replace(/^[\s,।!?-]+/, '');
+            }
+
+            historyTurns.unshift(summary);
+            renderHistory();
+        }
+
+        function renderHistory() {
+            if (historyTurns.length === 0) {
+                historyContainer.innerHTML = `<div style="color: var(--text-faint); font-size: 0.82rem; text-align: center; padding: 10px;">अभी तक कोई पिछला वार्तालाप नहीं है।</div>`;
+                return;
+            }
+
+            historyContainer.innerHTML = historyTurns.slice(0, 5).map(t => `
+                <div class="history-item">
+                    <div class="history-header">
+                        <span>टर्न #${t.turn_id} • ${t.chunks || 0} टुकड़े</span>
+                        <span>⏱️ 1st Play: ${t.first_play_ms || '--'} ms | Total: ${t.total_ms} ms</span>
+                    </div>
+                    <div class="history-dialogue">
+                        <div>👴 <strong>दादाजी:</strong> "${escapeHtml(t.user_said)}"</div>
+                        ${t.dev_thoughts ? `<div style="font-size:0.75rem; color:#88a0c0; font-family:monospace; margin:4px 0;">🧠 <em>${escapeHtml(t.dev_thoughts)}</em></div>` : ''}
+                        <div>👵 <strong>केयरटेकर:</strong> "${escapeHtml(t.final_hindi || t.ai_said)}"</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function clearHistory() {
+            historyTurns = [];
+            renderHistory();
+        }
+
+        // --------------------------------------------------------------------
+        // Manual Prompt Injection (Direct Testing)
+        // --------------------------------------------------------------------
+        async function sendDirectPrompt(text) {
+            try {
+                resetTelemetryCells();
+                sttOutputText.innerText = text;
+                userSttTime.innerText = "STT: 0 ms (Manual UI trigger)";
+                devThoughtsBox.innerHTML = `<span class="typing-cursor"></span>`;
+                finalHindiBox.innerHTML = ``;
+                setAvatarMood('thinking');
+                setStepState('step-llm', 'active');
+                stepperProgress.style.width = '50%';
+
+                const resp = await fetch('/api/send_text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+                const res = await resp.json();
+                console.log("Direct prompt queued:", res);
+            } catch (err) {
+                console.error("Direct prompt error:", err);
+            }
+        }
+
+        function sendManualPrompt() {
+            const input = document.getElementById('manual-prompt-input');
+            const text = input.value.trim();
+            if (text) {
+                sendDirectPrompt(text);
+                input.value = '';
+            }
+        }
+
+        function handleInputKey(e) {
+            if (e.key === 'Enter') {
+                sendManualPrompt();
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;')
+                      .replace(/</g, '&lt;')
+                      .replace(/>/g, '&gt;')
+                      .replace(/"/g, '&quot;')
+                      .replace(/'/g, '&#039;');
+        }
+
+        // --------------------------------------------------------------------
+        // Flat Database (Contacts, Reminders & Kitchen Grocery) Skills Functionality
+        // --------------------------------------------------------------------
+        const contactsListEl = document.getElementById('contacts-list-container');
+        const remindersListEl = document.getElementById('reminders-list-container');
+        const groceryListEl = document.getElementById('grocery-list-container');
+        const contactsCountBadge = document.getElementById('contacts-count-badge');
+        const remindersCountBadge = document.getElementById('reminders-count-badge');
+        const groceryCountBadge = document.getElementById('grocery-count-badge');
+        const lendingEarBadge = document.getElementById('lending-ear-badge');
+        const lendingEarText = document.getElementById('lending-ear-text');
+        const lendingEarDot = document.getElementById('lending-ear-dot');
+        const skillToast = document.getElementById('skill-toast');
+        const toastText = document.getElementById('toast-text');
+        const toastIcon = document.getElementById('toast-icon');
+
+        function activateLendingEarIndicator(durationMs = 9000) {
+            if (!lendingEarBadge) return;
+            lendingEarBadge.classList.add('badge-lending-active');
+            if (lendingEarText) lendingEarText.innerText = "👂 Lending an Ear (सहानुभूति सक्रिय)";
+            if (lendingEarDot) {
+                lendingEarDot.style.background = "#fbbf24";
+                lendingEarDot.style.opacity = "1";
+            }
+            clearTimeout(window._lendingEarTimer);
+            window._lendingEarTimer = setTimeout(() => {
+                lendingEarBadge.classList.remove('badge-lending-active');
+                if (lendingEarText) lendingEarText.innerText = "👂 Lending an Ear (Passive)";
+                if (lendingEarDot) {
+                    lendingEarDot.style.background = "#f59e0b";
+                    lendingEarDot.style.opacity = "0.5";
+                }
+            }, durationMs);
+        }
+
+        function showSkillToast(msg, icon = '⚡') {
+            if (!skillToast) return;
+            toastText.innerText = msg;
+            toastIcon.innerText = icon;
+            skillToast.classList.add('show');
+            setTimeout(() => {
+                skillToast.classList.remove('show');
+            }, 3200);
+        }
+
+        function flashSkillCard(skillName) {
+            if (skillName === 'crud_contacts') {
+                const card = document.getElementById('contacts-card');
+                if (card) {
+                    card.classList.remove('glow-emerald');
+                    void card.offsetWidth;
+                    card.classList.add('glow-emerald');
+                }
+            } else if (skillName === 'crud_reminders') {
+                const card = document.getElementById('reminders-card');
+                if (card) {
+                    card.classList.remove('glow-pulse');
+                    void card.offsetWidth;
+                    card.classList.add('glow-pulse');
+                }
+            } else if (skillName === 'crud_grocery') {
+                const card = document.getElementById('grocery-card');
+                if (card) {
+                    card.classList.remove('glow-amber');
+                    void card.offsetWidth;
+                    card.classList.add('glow-amber');
+                }
+            }
+        }
+
+        async function loadContactsData() {
+            try {
+                const res = await fetch('/api/contacts');
+                const contacts = await res.json();
+                renderContacts(contacts);
+            } catch (err) {
+                console.error("Failed to load contacts:", err);
+            }
+        }
+
+        async function loadRemindersData() {
+            try {
+                const res = await fetch('/api/reminders');
+                const reminders = await res.json();
+                renderReminders(reminders);
+            } catch (err) {
+                console.error("Failed to load reminders:", err);
+            }
+        }
+
+        function renderContacts(contacts) {
+            if (!contactsListEl) return;
+            const keys = Object.keys(contacts || {});
+            if (contactsCountBadge) contactsCountBadge.innerText = `${keys.length} संपर्क`;
+
+            if (keys.length === 0) {
+                contactsListEl.innerHTML = `
+                    <div class="empty-placeholder">
+                        <span>📇 कोई संपर्क सहेजा नहीं गया है</span>
+                        <span style="font-size:0.75rem; color:var(--text-faint);">"सुरेश का नंबर सेव करो" बोलें या ➕ पर क्लिक करें</span>
+                    </div>`;
+                return;
+            }
+
+            let html = '';
+            keys.forEach(k => {
+                const c = contacts[k];
+                const name = c.display_name || k;
+                const phone = c.phone || '--';
+                const initial = name.charAt(0).toUpperCase();
+
+                html += `
+                    <div class="contact-item-row" id="contact-row-${escapeHtml(k)}">
+                        <div class="contact-info">
+                            <div class="contact-avatar">${escapeHtml(initial)}</div>
+                            <div class="contact-details">
+                                <span class="contact-name">${escapeHtml(name)}</span>
+                                <span class="contact-phone">📞 ${escapeHtml(phone)}</span>
+                            </div>
+                        </div>
+                        <div class="item-actions">
+                            <button class="item-btn" title="नंबर कॉपी करें" onclick="copyToClipboard('${escapeHtml(phone)}')">📋</button>
+                            <button class="item-btn btn-delete" title="हटाएं" onclick="deleteContactPrompt('${escapeHtml(k)}')">🗑️</button>
+                        </div>
+                    </div>`;
+            });
+            contactsListEl.innerHTML = html;
+        }
+
+        function renderReminders(reminders) {
+            if (!remindersListEl) return;
+            reminders = reminders || [];
+            if (remindersCountBadge) remindersCountBadge.innerText = `${reminders.length} रिमाइंडर`;
+
+            if (reminders.length === 0) {
+                remindersListEl.innerHTML = `
+                    <div class="empty-placeholder">
+                        <span>⏰ कोई रिमाइंडर सक्रिय नहीं है</span>
+                        <span style="font-size:0.75rem; color:var(--text-faint);">"गुरुवार को अर्जुन को कॉल करने का रिमाइंडर" बोलें</span>
+                    </div>`;
+                return;
+            }
+
+            let html = '';
+            reminders.forEach((r, idx) => {
+                const day = r.day || 'Scheduled';
+                const task = r.task || 'Alert';
+
+                html += `
+                    <div class="reminder-item-row" id="reminder-row-${idx}">
+                        <div class="reminder-info">
+                            <span class="reminder-day-badge">📅 ${escapeHtml(day)}</span>
+                            <span class="reminder-task-text" title="${escapeHtml(task)}">${escapeHtml(task)}</span>
+                        </div>
+                        <div class="item-actions">
+                            <button class="item-btn btn-delete" title="पूरा हुआ / हटाएं" onclick="deleteReminderPrompt('${escapeHtml(task)}')">✔️</button>
+                        </div>
+                    </div>`;
+            });
+            remindersListEl.innerHTML = html;
+        }
+
+        function toggleAddContactForm() {
+            const form = document.getElementById('add-contact-form');
+            if (!form) return;
+            form.style.display = form.style.display === 'none' ? 'flex' : 'none';
+            if (form.style.display === 'flex') {
+                document.getElementById('new-contact-name').focus();
+            }
+        }
+
+        function toggleAddReminderForm() {
+            const form = document.getElementById('add-reminder-form');
+            if (!form) return;
+            form.style.display = form.style.display === 'none' ? 'flex' : 'none';
+            if (form.style.display === 'flex') {
+                document.getElementById('new-reminder-day').focus();
+            }
+        }
+
+        async function saveNewContact() {
+            const name = document.getElementById('new-contact-name').value.trim();
+            const phone = document.getElementById('new-contact-phone').value.trim();
+            if (!name || !phone) {
+                alert("कृपया नाम और फ़ोन नंबर दोनों भरें।");
+                return;
+            }
+            try {
+                const res = await fetch('/api/contacts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, phone })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    document.getElementById('new-contact-name').value = '';
+                    document.getElementById('new-contact-phone').value = '';
+                    toggleAddContactForm();
+                    showSkillToast(`संपर्क सेव किया: ${name}`, '📇');
+                    loadContactsData();
+                } else {
+                    alert(data.error || 'त्रुटि हुई');
+                }
+            } catch (err) {
+                console.error("Save contact error:", err);
+            }
+        }
+
+        async function deleteContactPrompt(key) {
+            if (!confirm(`क्या आप वाकई '${key}' को हटाना चाहते हैं?`)) return;
+            try {
+                const res = await fetch('/api/contacts', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target: key })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    showSkillToast(`संपर्क हटाया: ${key}`, '🗑️');
+                    loadContactsData();
+                }
+            } catch (err) {
+                console.error("Delete contact error:", err);
+            }
+        }
+
+        async function saveNewReminder() {
+            const day = document.getElementById('new-reminder-day').value.trim() || 'Scheduled';
+            const task = document.getElementById('new-reminder-task').value.trim();
+            if (!task) {
+                alert("कृपया कार्य विवरण भरें।");
+                return;
+            }
+            try {
+                const res = await fetch('/api/reminders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ day, task })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    document.getElementById('new-reminder-day').value = '';
+                    document.getElementById('new-reminder-task').value = '';
+                    toggleAddReminderForm();
+                    showSkillToast(`रिमाइंडर सेट: ${day}`, '⏰');
+                    loadRemindersData();
+                } else {
+                    alert(data.error || 'त्रुटि हुई');
+                }
+            } catch (err) {
+                console.error("Save reminder error:", err);
+            }
+        }
+
+        async function deleteReminderPrompt(task) {
+            try {
+                const res = await fetch('/api/reminders', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task: task })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    showSkillToast(`रिमाइंडर पूरा हुआ`, '✔️');
+                    loadRemindersData();
+                }
+            } catch (err) {
+                console.error("Delete reminder error:", err);
+            }
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showSkillToast(`नंबर कॉपी किया: ${text}`, '📋');
+            });
+        }
+
+        // --------------------------------------------------------------------
+        // Kitchen Grocery CRUD Operations
+        // --------------------------------------------------------------------
+        async function loadGroceryData() {
+            try {
+                const res = await fetch('/api/grocery');
+                const items = await res.json();
+                renderGrocery(items);
+            } catch (err) {
+                console.error("Failed to load grocery:", err);
+            }
+        }
+
+        function renderGrocery(items) {
+            if (!groceryListEl) return;
+            items = items || [];
+            if (groceryCountBadge) groceryCountBadge.innerText = `${items.length} सामान`;
+
+            if (items.length === 0) {
+                groceryListEl.innerHTML = `
+                    <div class="empty-placeholder">
+                        <span>🛒 रसोई राशन लिस्ट खाली है</span>
+                        <span style="font-size:0.75rem; color:var(--text-faint);">"राशन में आशीर्वाद आटा लिख लो" बोलें या ➕ पर क्लिक करें</span>
+                    </div>`;
+                return;
+            }
+
+            let html = '';
+            items.forEach((item, idx) => {
+                html += `
+                    <div class="grocery-item-row" id="grocery-row-${idx}">
+                        <div class="grocery-info">
+                            <span class="grocery-badge">🛒 राशन</span>
+                            <span class="grocery-name" title="${escapeHtml(item)}">${escapeHtml(item)}</span>
+                        </div>
+                        <div class="item-actions">
+                            <button class="item-btn btn-delete" title="खरीद लिया / हटाएं" onclick="deleteGroceryItemPrompt('${escapeHtml(item)}')">✔️</button>
+                        </div>
+                    </div>`;
+            });
+            groceryListEl.innerHTML = html;
+        }
+
+        function toggleAddGroceryForm() {
+            const form = document.getElementById('add-grocery-form');
+            if (!form) return;
+            form.style.display = form.style.display === 'none' ? 'flex' : 'none';
+            if (form.style.display === 'flex') {
+                document.getElementById('new-grocery-item').focus();
+            }
+        }
+
+        async function saveNewGroceryItem() {
+            const item = document.getElementById('new-grocery-item').value.trim();
+            if (!item) {
+                alert("कृपया सामान का नाम भरें।");
+                return;
+            }
+            try {
+                const res = await fetch('/api/grocery', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ item })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    document.getElementById('new-grocery-item').value = '';
+                    toggleAddGroceryForm();
+                    showSkillToast(`राशन में जोड़ा: ${item}`, '🛒');
+                    loadGroceryData();
+                } else {
+                    alert(data.error || 'त्रुटि हुई');
+                }
+            } catch (err) {
+                console.error("Save grocery error:", err);
+            }
+        }
+
+        async function deleteGroceryItemPrompt(item) {
+            try {
+                const res = await fetch('/api/grocery', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ item })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    showSkillToast(`सामान हटाया: ${item}`, '✔️');
+                    loadGroceryData();
+                }
+            } catch (err) {
+                console.error("Delete grocery error:", err);
+            }
+        }
+
+        // Initialize flat databases on page load
+        loadContactsData();
+        loadRemindersData();
+        loadGroceryData();
+    </script>
+
+    <!-- Skill Event Floating Toast -->
+    <div class="skill-toast" id="skill-toast">
+        <span id="toast-icon">⚡</span>
+        <span id="toast-text">स्किल निष्पादित हुई</span>
+    </div>
+
+</body>
+</html>
+

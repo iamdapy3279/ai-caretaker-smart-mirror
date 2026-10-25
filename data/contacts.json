@@ -1,0 +1,18 @@
+{
+    "suresh": {
+        "display_name": "Suresh",
+        "phone": "9876543210"
+    },
+    "ramesh": {
+        "display_name": "Ramesh",
+        "phone": "9812345678"
+    },
+    "priya": {
+        "display_name": "Priya",
+        "phone": "9823456789"
+    },
+    "dr. sharma": {
+        "display_name": "Dr. Sharma",
+        "phone": "9834567890"
+    }
+}

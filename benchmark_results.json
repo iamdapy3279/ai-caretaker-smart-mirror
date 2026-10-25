@@ -1,0 +1,152 @@
+[
+  {
+    "id": "V1",
+    "category": "Reminders",
+    "prompt": "Remind me on Thursday to call Arjun",
+    "ttft_ms": 3.5,
+    "first_audio_ms": 1879.8,
+    "main_thread_ms": 2800.5,
+    "clauses": 2,
+    "skill": "crud_reminders:create"
+  },
+  {
+    "id": "V2",
+    "category": "Reminders",
+    "prompt": "Mera koi reminder hai kya is hafte?",
+    "ttft_ms": 3.5,
+    "first_audio_ms": 3081.7,
+    "main_thread_ms": 8034.7,
+    "clauses": 3,
+    "skill": "crud_reminders:read"
+  },
+  {
+    "id": "V3",
+    "category": "Reminders",
+    "prompt": "Rohan wala kal ka reminder cancel kar do",
+    "ttft_ms": 2.2,
+    "first_audio_ms": 3547.4,
+    "main_thread_ms": 5575.0,
+    "clauses": 2,
+    "skill": "crud_reminders:delete"
+  },
+  {
+    "id": "V4",
+    "category": "Contacts",
+    "prompt": "Save new contact Suresh phone number 98765 43210",
+    "ttft_ms": 2.4,
+    "first_audio_ms": 8590.8,
+    "main_thread_ms": 8258.8,
+    "clauses": 4,
+    "skill": "crud_contacts:create"
+  },
+  {
+    "id": "V5",
+    "category": "Contacts",
+    "prompt": "Ramesh ka phone number kya hai batana?",
+    "ttft_ms": 3.6,
+    "first_audio_ms": 8886.1,
+    "main_thread_ms": 9215.4,
+    "clauses": 2,
+    "skill": "crud_contacts:read"
+  },
+  {
+    "id": "V6",
+    "category": "Grocery",
+    "prompt": "Beta, rashan me aashirvaad aata aur tata namak khatam hai, likh lo",
+    "ttft_ms": 5.2,
+    "first_audio_ms": 8886.1,
+    "main_thread_ms": 11488.1,
+    "clauses": 1,
+    "skill": "crud_contacts:read"
+  },
+  {
+    "id": "V7",
+    "category": "Grocery",
+    "prompt": "Mirror, dadi ne rashan me kya likhvaya hai?",
+    "ttft_ms": 3.8,
+    "first_audio_ms": 17293.7,
+    "main_thread_ms": 20070.0,
+    "clauses": 2,
+    "skill": "crud_grocery:create"
+  },
+  {
+    "id": "V8",
+    "category": "Medical",
+    "prompt": "Kya mai subah ki khali pet wali sugar ki goli kha sakta hu abhi?",
+    "ttft_ms": 52.3,
+    "first_audio_ms": 10636.8,
+    "main_thread_ms": 17037.5,
+    "clauses": 4,
+    "skill": "crud_grocery:read"
+  },
+  {
+    "id": "V9",
+    "category": "Companionship",
+    "prompt": "Hamare zamane me to ₹10 me pura rashan aa jata tha, ab dekho kitna mahanga hai",
+    "ttft_ms": 68.9,
+    "first_audio_ms": 11021.4,
+    "main_thread_ms": 16844.8,
+    "clauses": 4,
+    "skill": "companion_chat:resonate"
+  },
+  {
+    "id": "V10",
+    "category": "Companionship",
+    "prompt": "Ghar me bahut sannata hai, koi baat karne wala nahi hai",
+    "ttft_ms": 1.0,
+    "first_audio_ms": 7459.3,
+    "main_thread_ms": 14279.0,
+    "clauses": 2,
+    "skill": "chat"
+  },
+  {
+    "id": "V11",
+    "category": "Contacts",
+    "prompt": "Beta, doctor Neha ka phone number check karo",
+    "ttft_ms": 2.4,
+    "first_audio_ms": 9348.8,
+    "main_thread_ms": 15719.9,
+    "clauses": 2,
+    "skill": "companion_chat:resonate"
+  },
+  {
+    "id": "V12",
+    "category": "Reminders",
+    "prompt": "Sham ko 5 baje chai peene ka reminder laga do",
+    "ttft_ms": 1.0,
+    "first_audio_ms": 8096.9,
+    "main_thread_ms": 13639.3,
+    "clauses": 2,
+    "skill": "crud_reminders:create"
+  },
+  {
+    "id": "V13",
+    "category": "Grocery",
+    "prompt": "Rashan ki list me se besan hata do, mummy le aayi",
+    "ttft_ms": 3.0,
+    "first_audio_ms": 7044.5,
+    "main_thread_ms": 13286.7,
+    "clauses": 2,
+    "skill": "crud_grocery:delete"
+  },
+  {
+    "id": "V14",
+    "category": "Medical",
+    "prompt": "Dadi ki BP ki davai subah leni hai ya sham ko?",
+    "ttft_ms": 0.6,
+    "first_audio_ms": 8096.9,
+    "main_thread_ms": 13894.2,
+    "clauses": 0,
+    "skill": "chat"
+  },
+  {
+    "id": "V15",
+    "category": "Companionship",
+    "prompt": "Aaj subah ki dhoop bahut achhi hai, thoda baith lu kya?",
+    "ttft_ms": 0.4,
+    "first_audio_ms": 7160.5,
+    "main_thread_ms": 11536.1,
+    "clauses": 2,
+    "skill": "check_routine_timetable:match_pill_window"
+  }
+]
